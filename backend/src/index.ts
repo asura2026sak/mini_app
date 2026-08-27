@@ -218,6 +218,33 @@ async function sendTelegramMessage(token: string, chatId: number, text: string, 
   return null
 }
 
+// Helper function to send Telegram videos using Bot API
+async function sendTelegramVideo(token: string, chatId: number, videoUrl: string, caption: string, inlineKeyboard?: any[][]) {
+  try {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendVideo`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        chat_id: chatId,
+        video: videoUrl,
+        caption: caption,
+        parse_mode: 'HTML',
+        reply_markup: inlineKeyboard ? { inline_keyboard: inlineKeyboard } : undefined
+      })
+    })
+    if (res.ok) {
+      return await res.json()
+    } else {
+      console.error('sendVideo API failed:', await res.text())
+    }
+  } catch (e) {
+    console.error('Error sending Telegram video:', e)
+  }
+  return null
+}
+
 // Helper function to delete temporary status messages
 async function deleteTelegramMessage(token: string, chatId: number, messageId: number) {
   try {
@@ -331,14 +358,24 @@ app.post('/api/bot', async (c) => {
           `🎵 <b>Music:</b> ${data.music_info?.title || 'Original Sound'}\n` +
           `📝 <b>Caption:</b> <i>${title.substring(0, 150)}${title.length > 150 ? '...' : ''}</i>`
 
-        await sendTelegramMessage(botToken, chatId, caption, [
-          [
-            { text: '📥 Download MP4 (No Watermark)', url: downloadUrl }
-          ],
+        // Try to send the video natively first so the user can easily "Save to Gallery/Photos" inside Telegram
+        const sentVideo = await sendTelegramVideo(botToken, chatId, videoUrl, caption, [
           [
             { text: '📱 Open Mini App', web_app: { url: origin } }
           ]
         ])
+
+        // If the native video message fails (e.g., file too large for URL API), send the fallback link text card
+        if (!sentVideo) {
+          await sendTelegramMessage(botToken, chatId, caption, [
+            [
+              { text: '📥 Download MP4 (No Watermark)', url: downloadUrl }
+            ],
+            [
+              { text: '📱 Open Mini App', web_app: { url: origin } }
+            ]
+          ])
+        }
       } else {
         // Fallback: Serve Demo mode with oceans video
         const demoVideoUrl = 'https://vjs.zencdn.net/v/oceans.mp4'
@@ -350,14 +387,23 @@ app.post('/api/bot', async (c) => {
           `🎵 <b>Music:</b> Relaxing Deep Ocean Sounds - Ambient Nature\n` +
           `📝 <b>Caption:</b> <i>[Demo Mode] Beautiful Ocean Waves - TikTok Edit</i>`
 
-        await sendTelegramMessage(botToken, chatId, caption, [
-          [
-            { text: '📥 Download Demo MP4', url: downloadUrl }
-          ],
+        // Send the demo video natively
+        const sentDemo = await sendTelegramVideo(botToken, chatId, demoVideoUrl, caption, [
           [
             { text: '📱 Open Mini App', web_app: { url: origin } }
           ]
         ])
+
+        if (!sentDemo) {
+          await sendTelegramMessage(botToken, chatId, caption, [
+            [
+              { text: '📥 Download Demo MP4', url: downloadUrl }
+            ],
+            [
+              { text: '📱 Open Mini App', web_app: { url: origin } }
+            ]
+          ])
+        }
       }
       return c.text('TikTok handled', 200)
     }
