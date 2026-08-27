@@ -2,6 +2,25 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      window.addEventListener('error', function(e) {
+        var div = document.createElement('div');
+        div.style.position = 'fixed';
+        div.style.top = '0';
+        div.style.left = '0';
+        div.style.width = '100%';
+        div.style.background = '#ef4444';
+        div.style.color = 'white';
+        div.style.padding = '16px';
+        div.style.zIndex = '999999';
+        div.style.fontFamily = 'monospace';
+        div.style.fontSize = '14px';
+        div.style.lineHeight = '1.5';
+        div.style.boxShadow = '0 4px 12px rgba(0,0,0,0.3)';
+        div.innerHTML = '<strong>Client Crash Detected:</strong><br>' + e.message + '<br><small>at ' + e.filename + ':' + e.lineno + '</small>';
+        document.body.appendChild(div);
+      });
+    </script>
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📥</text></svg>" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>TokSave - Premium TikTok Downloader</title>
