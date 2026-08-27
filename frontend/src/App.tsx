@@ -199,7 +199,19 @@ export default function App() {
     setDownloading(true)
     tg?.HapticFeedback?.impactOccurred('medium')
     
-    window.location.href = videoData.downloadUrl
+    // Resolve the absolute URL for the external browser redirect
+    const fullDownloadUrl = videoData.downloadUrl.startsWith('http')
+      ? videoData.downloadUrl
+      : window.location.origin + videoData.downloadUrl
+
+    // Telegram's built-in webview on iOS/Android does not support direct binary file downloads.
+    // Calling tg.openLink() launches the download in the native mobile browser (Safari/Chrome) 
+    // which possesses a full download manager and permission to save files to the device Gallery/Photos.
+    if (isTelegram && tg && tg.openLink) {
+      tg.openLink(fullDownloadUrl)
+    } else {
+      window.location.href = fullDownloadUrl
+    }
 
     setTimeout(() => {
       setDownloading(false)
