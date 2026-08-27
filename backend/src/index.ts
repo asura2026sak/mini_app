@@ -28,11 +28,14 @@ app.get('/api/debug-env', (c) => {
 // POST /api/download - Resolves TikTok URLs to video details
 app.post('/api/download', async (c) => {
   try {
-    const { url } = await c.req.json()
+    let { url } = await c.req.json()
 
     if (!url) {
       return c.json({ success: false, error: 'URL is required' }, 400)
     }
+
+    // Strip tracking query parameters to ensure scraper resolution succeeds
+    url = url.split('?')[0].trim()
 
     // Basic URL validation
     const tiktokRegex = /^https?:\/\/(?:[a-z0-9-]+\.)?tiktok\.com\/./i
@@ -276,11 +279,14 @@ app.post('/api/bot', async (c) => {
     // 2. Handle TikTok video links
     const tiktokRegex = /^https?:\/\/(?:[a-z0-9-]+\.)?tiktok\.com\/./i
     if (tiktokRegex.test(text)) {
+      // Strip tracking query parameters to ensure scraper resolution succeeds
+      const cleanUrl = text.split('?')[0].trim()
+
       // Send a temporary loading status message
       const statusMsg = await sendTelegramMessage(botToken, chatId, '🔍 <i>Resolving TikTok video, please wait...</i>')
       
       const formData = new URLSearchParams()
-      formData.append('url', text)
+      formData.append('url', cleanUrl)
       formData.append('hd', '1')
 
       let apiResponse: any = null
