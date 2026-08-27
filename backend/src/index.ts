@@ -14,6 +14,17 @@ app.use('/api/*', cors({
 // Simple health check
 app.get('/api/health', (c) => c.json({ status: 'ok' }))
 
+app.get('/api/debug-env', (c) => {
+  const envObj = (c.env || {}) as Record<string, any>
+  const keys = Object.keys(envObj)
+  const hasToken = typeof envObj.TELEGRAM_BOT_TOKEN !== 'undefined'
+  return c.json({
+    hasToken,
+    keys,
+    message: hasToken ? 'Token is loaded!' : 'Token is missing from environment.'
+  })
+})
+
 // POST /api/download - Resolves TikTok URLs to video details
 app.post('/api/download', async (c) => {
   try {
