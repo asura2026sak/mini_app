@@ -48,27 +48,44 @@ app.post('/api/download', async (c) => {
 
     console.log(`Processing TikTok URL: ${url}`)
 
-    // Fetch from TikWM API using URL-encoded form data (the standard format for TikWM)
-    const formData = new URLSearchParams()
-    formData.append('url', url)
-    formData.append('hd', '1') // Request HD version if available
-
+    // Fetch from TikWM API using a hybrid GET/POST model.
+    // Cloudflare Workers datacenter IPs are often blocked on POST requests, so we try GET first.
     let apiResponse: any = null
     try {
-      const response = await fetch('https://www.tikwm.com/api/', {
-        method: 'POST',
+      const getUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(url)}&hd=1`
+      const response = await fetch(getUrl, {
+        method: 'GET',
         headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        },
-        body: formData.toString()
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+        }
       })
-
       if (response.ok) {
         apiResponse = await response.json()
       }
-    } catch (fetchErr) {
-      console.error('Error contacting external scraper API:', fetchErr)
+    } catch (err) {
+      console.warn('GET resolution failed, trying POST...', err)
+    }
+
+    if (!apiResponse || apiResponse.code !== 0) {
+      try {
+        const formData = new URLSearchParams()
+        formData.append('url', url)
+        formData.append('hd', '1')
+
+        const response = await fetch('https://www.tikwm.com/api/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          },
+          body: formData.toString()
+        })
+        if (response.ok) {
+          apiResponse = await response.json()
+        }
+      } catch (fetchErr) {
+        console.error('Error contacting external scraper API:', fetchErr)
+      }
     }
 
     // Check if TikWM API returned a successful resolution
@@ -312,25 +329,42 @@ app.post('/api/bot', async (c) => {
       // Send a temporary loading status message
       const statusMsg = await sendTelegramMessage(botToken, chatId, '🔍 <i>Resolving TikTok video, please wait...</i>')
       
-      const formData = new URLSearchParams()
-      formData.append('url', cleanUrl)
-      formData.append('hd', '1')
-
       let apiResponse: any = null
       try {
-        const response = await fetch('https://www.tikwm.com/api/', {
-          method: 'POST',
+        const getUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}&hd=1`
+        const response = await fetch(getUrl, {
+          method: 'GET',
           headers: {
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-          },
-          body: formData.toString()
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+          }
         })
         if (response.ok) {
           apiResponse = await response.json()
         }
       } catch (err) {
-        console.error('Bot API resolution error:', err)
+        console.warn('Bot GET resolution failed, trying POST...', err)
+      }
+
+      if (!apiResponse || apiResponse.code !== 0) {
+        try {
+          const formData = new URLSearchParams()
+          formData.append('url', cleanUrl)
+          formData.append('hd', '1')
+
+          const response = await fetch('https://www.tikwm.com/api/', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+            },
+            body: formData.toString()
+          })
+          if (response.ok) {
+            apiResponse = await response.json()
+          }
+        } catch (err) {
+          console.error('Bot POST API resolution error:', err)
+        }
       }
 
       // Delete the loading message if possible
