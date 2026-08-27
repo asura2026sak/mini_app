@@ -117,20 +117,69 @@ export default function App() {
     setDownloadSuccess(false)
 
     try {
-      const response = await fetch('/api/download', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ url: url.trim() })
-      })
+      const cleanUrl = url.split('?')[0].trim()
+      let resolvedData: any = null
 
-      const data = await response.json()
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || 'Failed to parse video. Please try again.')
+      // Step 1: Try client-side resolution directly from the user's browser (bypasses Cloudflare Worker IP blocks)
+      try {
+        console.log('Attempting client-side resolution from TikWM...')
+        const clientRes = await fetch(`https://www.tikwm.com/api/?url=${encodeURIComponent(cleanUrl)}`)
+        if (clientRes.ok) {
+          const clientData = await clientRes.json()
+          if (clientData && clientData.code === 0 && clientData.data) {
+            const { data } = clientData
+            const title = data.title || 'TikTok Video'
+            const videoUrl = data.play || data.wmplay
+            
+            const safeTitle = title
+              .replace(/[^a-zA-Z0-9\s-_]/g, '')
+              .substring(0, 50)
+              .trim() || 'tiktok-video'
+
+            const proxyDownloadUrl = `/api/proxy?url=${encodeURIComponent(videoUrl)}&title=${encodeURIComponent(safeTitle)}`
+
+            resolvedData = {
+              success: true,
+              title,
+              thumbnail: data.cover || data.origin_cover || 'https://images.unsplash.com/photo-1611162617213-7d7a39e9b1d7?w=500',
+              videoUrl,
+              downloadUrl: proxyDownloadUrl,
+              author: data.author?.unique_id || data.author?.nickname || 'unknown',
+              stats: {
+                plays: data.play_count || 0,
+                likes: data.digg_count || 0,
+                comments: data.comment_count || 0,
+                shares: data.share_count || 0
+              },
+              music: data.music_info?.title || 'Original Sound',
+              isDemo: false
+            }
+            console.log('Client-side resolution succeeded!')
+          }
+        }
+      } catch (clientErr) {
+        console.warn('Client-side resolution failed or blocked, falling back to server...', clientErr)
       }
 
-      setVideoData(data)
+      // Step 2: Fall back to backend server if client-side check failed
+      if (!resolvedData) {
+        console.log('Requesting resolution from Hono server...')
+        const response = await fetch('/api/download', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ url: cleanUrl })
+        })
+
+        const data = await response.json()
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Failed to parse video. Please try again.')
+        }
+        resolvedData = data
+      }
+
+      setVideoData(resolvedData)
       tg?.HapticFeedback?.notificationOccurred('success')
     } catch (err: any) {
       setError(err.message || 'An unexpected error occurred.')
