@@ -1,0 +1,16 @@
+{
+  "name": "tiktok-downloader-backend",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev src/index.ts --port 8787",
+    "deploy": "wrangler deploy src/index.ts"
+  },
+  "dependencies": {
+    "hono": "^4.5.3"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240821.0",
+    "wrangler": "^3.72.2"
+  }
+}
