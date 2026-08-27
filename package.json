@@ -1,0 +1,17 @@
+{
+  "name": "toksave-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "install:all": "npm install",
+    "build": "npm run build -w frontend",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^3.72.2"
+  }
+}
